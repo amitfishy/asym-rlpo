@@ -426,7 +426,7 @@ def run(runstate: RunState) -> bool:
     negentropy_schedule = make_schedule(
         config.negentropy_schedule,
         value_from=config.negentropy_value_from,
-        value_to=config.negentropy_value_to,
+        value_to=config.negentropy_value_from/10.0,#config.negentropy_value_to,
         nsteps=config.negentropy_nsteps,
         halflife=config.negentropy_halflife,
     )
