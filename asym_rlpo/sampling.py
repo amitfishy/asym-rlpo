@@ -8,7 +8,6 @@ from asym_rlpo.utils.convert import numpy2torch
 
 from .data import Episode, Interaction
 
-
 def sample_episode(
     env: Environment,
     policy: Policy,
@@ -28,7 +27,7 @@ def sample_episode(
         while True:
             action = policy.sample_action()
             next_observation, next_latent, reward, done = env.step(action)
-            policy.step(torch.tensor(action), numpy2torch(next_observation))
+            policy.step(torch.tensor(action), numpy2torch(next_observation), torch.tensor(reward))
 
             if render:
                 env.render()

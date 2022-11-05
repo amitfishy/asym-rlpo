@@ -17,6 +17,14 @@ from asym_rlpo.models.models_gv import make_models as make_models_gv
 from asym_rlpo.models.models_openai import make_models as make_models_openai
 from asym_rlpo.utils.debugging import checkraise
 
+from asym_rlpo.models.models_flat_ais import make_models as make_models_flat_AIS
+from asym_rlpo.models.models_gv_ais import make_models as make_models_gv_AIS
+from asym_rlpo.models.models_extra_carflag_ais import (
+    make_models as make_models_extra_carflag_AIS,
+)
+from asym_rlpo.models.models_extra_cleaner_ais import (
+    make_models as make_models_extra_cleaner_AIS,
+)
 
 def make_models(
     env: Environment,
@@ -41,6 +49,39 @@ def make_models(
 
     elif env.type is EnvironmentType.FLAT:
         models = make_models_flat(env)
+
+    else:
+        raise NotImplementedError
+
+    return models if keys is None else filter_models(models, keys)
+
+
+def make_models_AIS(
+    env: Environment,
+    *,
+    keys: Optional[Iterable[str]] = None,
+) -> nn.ModuleDict:
+
+    if env.type is EnvironmentType.GV:
+        raise NotImplementedError
+        models = make_models_gv_AIS(env)
+
+    elif env.type is EnvironmentType.OPENAI:
+        raise NotImplementedError
+        models = make_models_openai(env)
+
+    elif env.type is EnvironmentType.EXTRA_DECTIGER:
+        raise NotImplementedError
+        models = make_models_extra_dectiger(env)
+
+    elif env.type is EnvironmentType.EXTRA_CLEANER:
+        models = make_models_extra_cleaner_AIS(env)
+
+    elif env.type is EnvironmentType.EXTRA_CARFLAG:
+        models = make_models_extra_carflag_AIS(env)
+
+    elif env.type is EnvironmentType.FLAT:
+        models = make_models_flat_AIS(env)
 
     else:
         raise NotImplementedError

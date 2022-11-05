@@ -13,7 +13,7 @@ import torch.nn as nn
 import wandb
 from gym_gridverse.rng import reset_gv_rng
 
-from asym_rlpo.algorithms import A2C_ABC, make_a2c_algorithm
+from asym_rlpo.algorithms import A2C_ABC_AIS, make_a2c_algorithm_ais
 from asym_rlpo.envs import Environment, LatentType, make_env
 from asym_rlpo.evaluation import evaluate_returns
 from asym_rlpo.q_estimators import q_estimator_factory
@@ -43,20 +43,21 @@ logger = logging.getLogger(__name__)
 def parse_args():
     parser = argparse.ArgumentParser()
 
-    # wandb arguments
-    parser.add_argument('--wandb-entity', default='amitfishy')
-    parser.add_argument('--wandb-project', default='asym-rlpo-test1')
-    parser.add_argument('--wandb-group', default=None)
-    parser.add_argument('--wandb-tag', action='append', dest='wandb_tags')
-    parser.add_argument('--wandb-offline', action='store_true')
-
-    # wandb related
-    parser.add_argument('--num-wandb-logs', type=int, default=200)
-
     # algorithm and environment
     parser.add_argument('env')
     parser.add_argument('algo', choices=['a2c', 'asym-a2c', 'asym-a2c-state'])
 
+    # wandb arguments
+    parser.add_argument('--wandb-entity', default='amitfishy')
+    parser.add_argument('--wandb-project', default='asym-rlpo-test1')
+    parser.add_argument('--wandb-group', default='test1')
+    parser.add_argument('--wandb-tag', action='append', dest='wandb_tags')
+    parser.add_argument('--wandb-offline', action='store_true')
+    parser.add_argument('--wandb-dir', default='results')
+
+    # wandb related
+    parser.add_argument('--num-wandb-logs', type=int, default=100)
+    
     parser.add_argument('--env-label', default=None)
     parser.add_argument('--algo-label', default=None)
 
@@ -70,7 +71,7 @@ def parse_args():
 
     # general
     parser.add_argument(
-        '--max-simulation-timesteps', type=int, default=2_000_000
+        '--max-simulation-timesteps', type=int, default=20_000
     )
     parser.add_argument('--max-episode-timesteps', type=int, default=1_000)
     parser.add_argument('--simulation-num-episodes', type=int, default=1)
@@ -106,11 +107,17 @@ def parse_args():
     # exponential
     parser.add_argument('--negentropy-halflife', type=int, default=500_000)
 
+    #ais lambda weights
+    parser.add_argument('--next-ais-lambda', type=float, default=1.0)
+    parser.add_argument('--latent-lambda', type=float, default=1.0)
+
     # optimization
     parser.add_argument('--optim-lr-actor', type=float, default=1e-4)
     parser.add_argument('--optim-eps-actor', type=float, default=1e-4)
     parser.add_argument('--optim-lr-critic', type=float, default=1e-4)
     parser.add_argument('--optim-eps-critic', type=float, default=1e-4)
+    parser.add_argument('--optim-lr-ais', type=float, default=2e-4)
+    parser.add_argument('--optim-eps-ais', type=float, default=2e-4)
     parser.add_argument('--optim-max-norm', type=float, default=float('inf'))
 
     # device
@@ -154,7 +161,7 @@ def parse_args():
 
     # checkpoint
     parser.add_argument('--checkpoint', default=None)
-    parser.add_argument('--checkpoint-period', type=int, default=36_000)
+    parser.add_argument('--checkpoint-period', type=int, default=200_000)
 
     parser.add_argument('--save-model', action='store_true')
     parser.add_argument('--model-filename', default=None)
@@ -197,9 +204,10 @@ class XStatsSerializer(Serializer[XStats]):
 
 class RunState(NamedTuple):
     env: Environment
-    algo: A2C_ABC
+    algo: A2C_ABC_AIS
     optimizer_actor: torch.optim.Optimizer
     optimizer_critic: torch.optim.Optimizer
+    optimizer_ais: torch.optim.Optimizer
     wandb_logger: WandbLogger
     xstats: XStats
     timer: Timer
@@ -221,6 +229,7 @@ class RunStateSerializer(Serializer[RunState]):
             'target_models': obj.algo.target_models.state_dict(),
             'optimizer_actor': obj.optimizer_actor.state_dict(),
             'optimizer_critic': obj.optimizer_critic.state_dict(),
+            'optimizer_ais': obj.optimizer_ais.state_dict(),
             'wandb_logger': self.wandb_logger_serializer.serialize(
                 obj.wandb_logger
             ),
@@ -241,6 +250,7 @@ class RunStateSerializer(Serializer[RunState]):
         obj.algo.target_models.load_state_dict(data['target_models'])
         obj.optimizer_actor.load_state_dict(data['optimizer_actor'])
         obj.optimizer_critic.load_state_dict(data['optimizer_critic'])
+        obj.optimizer_ais.load_state_dict(data['optimizer_ais'])
         self.wandb_logger_serializer.deserialize(
             obj.wandb_logger,
             data['wandb_logger'],
@@ -279,14 +289,25 @@ def setup() -> RunState:
         latent_type=latent_type,
         max_episode_timesteps=config.max_episode_timesteps,
     )
+    # print(latent_type)
+    # print(env)
+    # print(env.observation_space)
+    # print(env.latent_space)
+    # print(env.action_space)
+    # exit()
 
-    algo = make_a2c_algorithm(
+    algo = make_a2c_algorithm_ais(
         config.algo,
         env,
         truncated_histories=config.truncated_histories,
         truncated_histories_n=config.truncated_histories_n,
     )
 
+    optimizer_ais = torch.optim.Adam(
+        algo.models.parameters(),
+        lr=config.optim_lr_ais,
+        eps=config.optim_eps_ais,
+    )
     optimizer_actor = torch.optim.Adam(
         algo.models.parameters(),
         lr=config.optim_lr_actor,
@@ -322,6 +343,7 @@ def setup() -> RunState:
         algo,
         optimizer_actor,
         optimizer_critic,
+        optimizer_ais,
         wandb_logger,
         xstats,
         timer,
@@ -362,6 +384,7 @@ def run(runstate: RunState) -> bool:
         algo,
         optimizer_actor,
         optimizer_critic,
+        optimizer_ais,
         wandb_logger,
         xstats,
         timer,
@@ -448,6 +471,7 @@ def run(runstate: RunState) -> bool:
                 evaluation_policy,
                 num_episodes=config.evaluation_num_episodes,
             )
+            
             mean_length = sum(map(len, episodes)) / len(episodes)
             returns = evaluate_returns(
                 episodes, discount=config.evaluation_discount
@@ -512,6 +536,33 @@ def run(runstate: RunState) -> bool:
             algo.target_models.load_state_dict(algo.models.state_dict())
 
         algo.models.train()
+        # ais
+        optimizer_ais.zero_grad()
+        losses = [
+            algo.ais_loss(episode)
+            for episode in episodes
+        ]
+
+        #done with this one 
+        # print('ais losses: ', losses)
+        # print('exiting')
+        # exit()
+
+        if config.algo == 'a2c':
+            next_rew_loss, next_ais_loss = zip(*losses)
+            next_rew_losses, next_ais_losses = average(next_rew_loss), average(next_ais_loss)
+            ais_loss = next_rew_losses + config.next_ais_lambda*next_ais_losses
+        elif config.algo == 'asym-a2c':
+            next_rew_loss, next_ais_loss, latent_loss = zip(*losses)
+            next_rew_losses, next_ais_losses, latent_losses = average(next_rew_loss), average(next_ais_loss), average(latent_loss)
+            ais_loss = next_rew_losses + config.next_ais_lambda*next_ais_losses + config.latent_lambda*latent_losses
+        else:
+            assert False, "Wrong algorithm choice."
+        ais_loss.backward()
+        ais_gradient_norm = nn.utils.clip_grad.clip_grad_norm_(
+            algo.models.parameters(), max_norm=config.optim_max_norm
+        )
+        optimizer_ais.step()
 
         # critic
         optimizer_critic.zero_grad()
@@ -523,6 +574,9 @@ def run(runstate: RunState) -> bool:
             )
             for episode in episodes
         ]
+        # print('Critic Loss: ', losses)
+        # exit()
+
         critic_loss = average(losses)
         critic_loss.backward()
         critic_gradient_norm = nn.utils.clip_grad.clip_grad_norm_(
@@ -541,6 +595,9 @@ def run(runstate: RunState) -> bool:
             for episode in episodes
         ]
 
+        # print('actor losses: ', losses)
+        # exit()
+
         actor_losses, negentropy_losses = zip(*losses)
         actor_loss = average(actor_losses)
         negentropy_loss = average(negentropy_losses)
@@ -554,11 +611,12 @@ def run(runstate: RunState) -> bool:
 
         if wandb_log:
             logger.info(
-                'training log - simulation_step %d losses %.3f %.3f %.3f',
+                'training log - simulation_step %d losses %.3f %.3f %.3f %.3f',
                 xstats.simulation_timesteps,
                 actor_loss,
                 critic_loss,
                 negentropy_loss,
+                ais_loss,
             )
             wandb_logger.log(
                 {
@@ -567,6 +625,7 @@ def run(runstate: RunState) -> bool:
                     'training/losses/actor': actor_loss,
                     'training/losses/critic': critic_loss,
                     'training/losses/negentropy': negentropy_loss,
+                    'training/losses/ais': ais_loss,
                     'training/weights/negentropy': weight_negentropy,
                     'training/gradient_norms/actor': actor_gradient_norm,
                     'training/gradient_norms/critic': critic_gradient_norm,
@@ -611,6 +670,7 @@ def main():
         'group': args.wandb_group,
         'tags': args.wandb_tags,
         'mode': args.wandb_mode,
+        'dir': args.wandb_dir,
         'config': args,
     }
 
