@@ -18,11 +18,9 @@ def make_env(
     latent_type: LatentType,
     max_episode_timesteps: Optional[int] = None,
 ) -> Environment:
-
     try:
         env = make_gym_env(id_or_path, latent_type=latent_type)
-
-    except ValueError:
+    except ValueError: #this condition doesn't seem to work for GV envs, so it doesn't pick up the env.type tag as EnvironmentType.GV which causes problems later
         print(
             f'Environment with id {id_or_path} not found.'
             ' Trying as a GV YAML environment.'

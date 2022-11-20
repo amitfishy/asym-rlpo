@@ -17,7 +17,7 @@ from asym_rlpo.algorithms import A2C_ABC_AIS, make_a2c_algorithm_ais
 from asym_rlpo.envs import Environment, LatentType, make_env
 from asym_rlpo.evaluation import evaluate_returns
 from asym_rlpo.q_estimators import q_estimator_factory
-from asym_rlpo.sampling import sample_episodes
+from asym_rlpo.sampling_ais import sample_episodes
 from asym_rlpo.utils.aggregate import average
 from asym_rlpo.utils.checkpointing import Serializer, load_data, save_data
 from asym_rlpo.utils.config import get_config
@@ -151,7 +151,7 @@ def parse_args():
     parser.add_argument(
         '--gv-state-grid-model-type',
         choices=['cnn', 'fc'],
-        default='fc',
+        default='cnn',
     )
     parser.add_argument(
         '--gv-state-representation-layers',
@@ -289,6 +289,7 @@ def setup() -> RunState:
         latent_type=latent_type,
         max_episode_timesteps=config.max_episode_timesteps,
     )
+
     # print(latent_type)
     # print(env)
     # print(env.observation_space)

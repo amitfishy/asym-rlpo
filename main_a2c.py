@@ -144,7 +144,7 @@ def parse_args():
     parser.add_argument(
         '--gv-state-grid-model-type',
         choices=['cnn', 'fc'],
-        default='fc',
+        default='cnn',
     )
     parser.add_argument(
         '--gv-state-representation-layers',
