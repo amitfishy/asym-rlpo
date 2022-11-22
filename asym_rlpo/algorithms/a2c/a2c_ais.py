@@ -8,7 +8,6 @@ from asym_rlpo.data import Episode
 
 from .base_ais import A2C_ABC_AIS
 
-
 class A2C_AIS(A2C_ABC_AIS):
     model_keys = {
         'agent': [
@@ -85,10 +84,10 @@ class A2C_AIS(A2C_ABC_AIS):
         # print('pred_next_ais: ', pred_next_ais, pred_next_ais.shape)
         # print('history_features: ', history_features, history_features.shape)
         next_rew_loss = F.mse_loss(reward_features, pred_rew)
-        next_ais_loss = torch.mean(2*torch.norm(pred_next_ais[:-1], p=2, dim=-1)**2 - 4*torch.sum(pred_next_ais[:-1]*history_features[1:], dim=-1))
+        next_ais_loss = torch.tensor(0.0)
+        if pred_next_ais.shape[0] > 1:
+            next_ais_loss = torch.mean(2*torch.norm(pred_next_ais[:-1], p=2, dim=-1)**2 - 4*torch.sum(pred_next_ais[:-1]*history_features[1:], dim=-1))
 
-        # print('losses: ', next_rew_loss, next_ais_loss)
-        # exit()
         return next_rew_loss, next_ais_loss
 
     def ais_loss(

@@ -102,7 +102,9 @@ class AsymA2C_AIS(A2C_ABC_AIS):
         # print('pred_latent: ', pred_latent, pred_latent.shape)
 
         next_rew_loss = F.mse_loss(reward_features, pred_rew)
-        next_ais_loss = torch.mean(2*torch.norm(pred_next_ais[:-1], p=2, dim=-1)**2 - 4*torch.sum(pred_next_ais[:-1]*history_features[1:], dim=-1))
+        next_ais_loss = torch.tensor(0.0)
+        if pred_next_ais.shape[0] > 1:
+            next_ais_loss = torch.mean(2*torch.norm(pred_next_ais[:-1], p=2, dim=-1)**2 - 4*torch.sum(pred_next_ais[:-1]*history_features[1:], dim=-1))
 
         latent_loss = torch.mean(2*torch.norm(pred_latent, p=2, dim=-1)**2 - 4*torch.sum(pred_latent*latent_features, dim=-1))
 
