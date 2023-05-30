@@ -61,8 +61,9 @@ def make_a2c_algorithm_ais(
     *,
     truncated_histories: bool,
     truncated_histories_n: int,
+    detach_ac: bool
 ) -> A2C_ABC_AIS:
-
+    
     partial_make_history_integrator = functools.partial(
         make_history_integrator_AIS,
         truncated_histories=truncated_histories,
@@ -75,6 +76,7 @@ def make_a2c_algorithm_ais(
     )
 
     if name == 'a2c':
+        raise NotImplementedError
         algorithm_class = A2C_AIS
     elif name == 'asym-a2c':
         algorithm_class = AsymA2C_AIS
@@ -84,11 +86,12 @@ def make_a2c_algorithm_ais(
         raise ValueError(f'invalid algorithm name {name}')
 
     models = make_models_AIS(env, keys=algorithm_class.model_keys)
-
+    
     return algorithm_class(
         models,
         make_history_integrator_AIS=partial_make_history_integrator,
         compute_history_features_AIS=partial_compute_history_features,
+        detach_ac=detach_ac,
     )
 
 

@@ -65,6 +65,9 @@ def parse_args():
     parser.add_argument('--truncated-histories', action='store_true')
     parser.add_argument('--truncated-histories-n', type=int, default=-1)
 
+    #used for AIS, denotes whether gradients should be detached at the actor and critic
+    parser.add_argument('--detach-ac', action='store_true')
+
     # reproducibility
     parser.add_argument('--seed', type=int, default=None)
     parser.add_argument('--deterministic', action='store_true')
@@ -108,7 +111,7 @@ def parse_args():
     parser.add_argument('--negentropy-halflife', type=int, default=500_000)
 
     #ais lambda weights
-    parser.add_argument('--next-ais-lambda', type=float, default=1.0)
+    # parser.add_argument('--next-ais-lambda', type=float, default=1.0)
     parser.add_argument('--latent-lambda', type=float, default=1.0)
 
     # optimization
@@ -296,12 +299,14 @@ def setup() -> RunState:
     # print(env.latent_space)
     # print(env.action_space)
     # exit()
-
+    # print("-----" , config.detach_ac)
+    # exit()
     algo = make_a2c_algorithm_ais(
         config.algo,
         env,
         truncated_histories=config.truncated_histories,
         truncated_histories_n=config.truncated_histories_n,
+        detach_ac=config.detach_ac
     )
 
     optimizer_ais = torch.optim.Adam(
@@ -550,13 +555,17 @@ def run(runstate: RunState) -> bool:
         # exit()
 
         if config.algo == 'a2c':
-            next_rew_loss, next_ais_loss = zip(*losses)
-            next_rew_losses, next_ais_losses = average(next_rew_loss), average(next_ais_loss)
-            ais_loss = next_rew_losses + config.next_ais_lambda*next_ais_losses
+            raise NotImplementedError
+            # next_rew_loss, next_ais_loss = zip(*losses)
+            # next_rew_losses, next_ais_losses = average(next_rew_loss), average(next_ais_loss)
+            # ais_loss = next_rew_losses + config.next_ais_lambda*next_ais_losses
         elif config.algo == 'asym-a2c':
-            next_rew_loss, next_ais_loss, latent_loss = zip(*losses)
-            next_rew_losses, next_ais_losses, latent_losses = average(next_rew_loss), average(next_ais_loss), average(latent_loss)
-            ais_loss = next_rew_losses + config.next_ais_lambda*next_ais_losses + config.latent_lambda*latent_losses
+            # next_rew_loss, next_ais_loss, latent_loss = zip(*losses)
+            # next_rew_losses, next_ais_losses, latent_losses = average(next_rew_loss), average(next_ais_loss), average(latent_loss)
+            # ais_loss = next_rew_losses + config.next_ais_lambda*next_ais_losses + config.latent_lambda*latent_losses
+            next_ais_loss, latent_loss = zip(*losses)
+            next_ais_losses, latent_losses = average(next_ais_loss), average(latent_loss)
+            ais_loss = next_ais_losses + config.latent_lambda*latent_losses
         else:
             assert False, "Wrong algorithm choice."
         ais_loss.backward()

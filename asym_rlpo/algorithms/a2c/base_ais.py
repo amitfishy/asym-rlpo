@@ -54,7 +54,10 @@ class A2C_ABC_AIS(Algorithm_ABC_AIS):
             episode.observations,
             episode.rewards,
         )
-        action_logits = models.agent.policy_model(history_features_AIS)
+        if self.detach_ac:
+            action_logits = models.agent.policy_model(history_features_AIS.detach())
+        else:
+            action_logits = models.agent.policy_model(history_features_AIS)
         return action_logits
 
     @abc.abstractmethod

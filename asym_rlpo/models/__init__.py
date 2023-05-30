@@ -63,6 +63,7 @@ def make_models_AIS(
 ) -> nn.ModuleDict:
     
     if env.type is EnvironmentType.GV:
+        raise NotImplementedError
         models = make_models_gv_AIS(env)
 
     elif env.type is EnvironmentType.OPENAI:

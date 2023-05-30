@@ -105,7 +105,7 @@ def _make_h_ais_psi_model(history_dim, actions_dim):
 
 def _make_hz_ais_psi_model(latent_dim, history_dim, actions_dim):
     vanilla_ais_psi_base = nn.Sequential(
-        make_module('linear', 'relu', latent_dim + history_dim + actions_dim, history_dim),
+        make_module('linear', 'relu', history_dim + actions_dim, history_dim),
         nn.ReLU(),
         make_module('linear', 'relu', history_dim, history_dim),
         nn.ReLU(),
@@ -117,9 +117,9 @@ def _make_hz_ais_psi_model(latent_dim, history_dim, actions_dim):
         nn.ReLU(),
     )
 
-    ais_psi_pred_rew = nn.Sequential(
-        make_module('linear', 'relu', history_dim, 1),
-        )
+    # ais_psi_pred_rew = nn.Sequential(
+    #     make_module('linear', 'relu', history_dim, 1),
+    #     )
     ais_psi_pred_next_ais = nn.Sequential(
         make_module('linear', 'relu', history_dim, history_dim),
         )
@@ -131,7 +131,7 @@ def _make_hz_ais_psi_model(latent_dim, history_dim, actions_dim):
     return {
         'hz_vanilla_ais_psi_base': vanilla_ais_psi_base,
         'hz_asymac_ais_psi_base': asymac_ais_psi_base,
-        'hz_pred_rew': ais_psi_pred_rew,
+        # 'hz_pred_rew': ais_psi_pred_rew,
         'hz_pred_next_ais': ais_psi_pred_next_ais,
         'hz_pred_latent': asymac_ais_psi_pred_latent,
     }
@@ -147,7 +147,7 @@ def make_models(env: Environment) -> nn.ModuleDict:
         }
     )
 
-    models.ais_psi.update(_make_h_ais_psi_model(models.agent.history_model.dim, models.agent.action_model.dim))
+    # models.ais_psi.update(_make_h_ais_psi_model(models.agent.history_model.dim, models.agent.action_model.dim))
     models.ais_psi.update(_make_hz_ais_psi_model(models.agent.latent_model.dim, models.agent.history_model.dim, models.agent.action_model.dim))
 
     # DQN models

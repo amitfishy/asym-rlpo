@@ -21,6 +21,7 @@ class Algorithm_ABC_AIS(metaclass=abc.ABCMeta):
         *,
         make_history_integrator_AIS: HistoryIntegratorMakerAIS,
         compute_history_features_AIS: HistoryFeaturesComputerAIS,
+        detach_ac: bool,
     ):
         super().__init__()
         self.models = models
@@ -28,6 +29,8 @@ class Algorithm_ABC_AIS(metaclass=abc.ABCMeta):
 
         self.make_history_integrator_AIS = make_history_integrator_AIS
         self.compute_history_features_AIS = compute_history_features_AIS
+
+        self.detach_ac = detach_ac
 
     def to(self, device: torch.device):
         self.models.to(device)

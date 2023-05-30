@@ -34,7 +34,7 @@ class AsymA2C_AIS(A2C_ABC_AIS):
             'latent_model',
             'hz_vanilla_ais_psi_base',
             'hz_asymac_ais_psi_base',
-            'hz_pred_rew',
+            # 'hz_pred_rew',
             'hz_pred_next_ais',
             'hz_pred_latent',
         ],
@@ -54,7 +54,10 @@ class AsymA2C_AIS(A2C_ABC_AIS):
             episode.rewards,
         )
         latent_features = models.critic.latent_model(episode.latents)
-        inputs = torch.cat([history_features, latent_features], dim=-1)
+        if self.detach_ac:
+            inputs = torch.cat([history_features.detach(), latent_features], dim=-1)
+        else:
+            inputs = torch.cat([history_features, latent_features], dim=-1)
         vhz_values = models.critic.vhz_model(inputs).squeeze(-1)
         # print('history_features: ', history_features, history_features.shape)
         # print('latent_features: ', latent_features, latent_features.shape)
@@ -74,8 +77,8 @@ class AsymA2C_AIS(A2C_ABC_AIS):
         )
 
         action_features = models.ais_psi.action_model(episode.actions)
-        reward_features = models.ais_psi.reward_model(episode.rewards).unsqueeze(-1)
-        latent_features = models.ais_psi.latent_model(episode.latents)
+        # reward_features = models.ais_psi.reward_model(episode.rewards).unsqueeze(-1)
+        latent_features = models.ais_psi.latent_model(episode.latents).detach()
 
         # print('episode actions: ', episode.actions, episode.actions.shape)
         # print('episode action_features: ', action_features, action_features.shape)
@@ -85,10 +88,11 @@ class AsymA2C_AIS(A2C_ABC_AIS):
         # print('episode latents: ', episode.latents, episode.latents.shape)
         # print('episode latent_feats: ', latent_features, latent_features.shape)
 
-        psi_inputs = torch.cat([latent_features, history_features, action_features], dim=-1)
+        # psi_inputs = torch.cat([latent_features, history_features, action_features], dim=-1)
+        psi_inputs = torch.cat([history_features, action_features], dim=-1)
         # print('psi_inputs: ', psi_inputs, psi_inputs.shape)
         psi_inputs = models.ais_psi.hz_vanilla_ais_psi_base(psi_inputs)
-        pred_rew = models.ais_psi.hz_pred_rew(psi_inputs)
+        # pred_rew = models.ais_psi.hz_pred_rew(psi_inputs)
         pred_next_ais = models.ais_psi.hz_pred_next_ais(psi_inputs)
 
         # print('pred_rew: ', pred_rew, pred_rew.shape)
@@ -101,7 +105,7 @@ class AsymA2C_AIS(A2C_ABC_AIS):
         # print('latent_psi_inputs: ', latent_psi_inputs, latent_psi_inputs.shape)
         # print('pred_latent: ', pred_latent, pred_latent.shape)
 
-        next_rew_loss = F.mse_loss(reward_features, pred_rew)
+        # next_rew_loss = F.mse_loss(reward_features, pred_rew)
         next_ais_loss = torch.tensor(0.0)
         if pred_next_ais.shape[0] > 1:
             next_ais_loss = torch.mean(2*torch.norm(pred_next_ais[:-1], p=2, dim=-1)**2 - 4*torch.sum(pred_next_ais[:-1]*history_features[1:], dim=-1))
@@ -109,11 +113,11 @@ class AsymA2C_AIS(A2C_ABC_AIS):
         latent_loss = torch.mean(2*torch.norm(pred_latent, p=2, dim=-1)**2 - 4*torch.sum(pred_latent*latent_features, dim=-1))
 
         # print('loss: ', next_rew_loss, next_ais_loss, latent_loss)
-        return next_rew_loss, next_ais_loss, latent_loss
+        return next_ais_loss, latent_loss
 
     def ais_loss(
         self,
         episode: Episode,
-    ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
-        next_rew_loss, next_ais_loss, latent_loss = self.compute_ais_losses(self.models, episode)
-        return next_rew_loss, next_ais_loss, latent_loss
+    ) -> Tuple[torch.Tensor, torch.Tensor]:
+        next_ais_loss, latent_loss = self.compute_ais_losses(self.models, episode)
+        return next_ais_loss, latent_loss
